@@ -1,0 +1,25 @@
+{
+  "Not_Completed": "Not completed",
+  "subjectList": {
+    "math": "Математика",
+    "biologia": "Біологія",
+    "ukranian_literature": "Українська література",
+    "IT": "Інформатика",
+    "english_language": "Англійська мова",
+    "literature": "Зарубіжна література",
+    "geographia": "Географія",
+    "physics":"Фізика",
+    "PE":"Фізкультура",
+    "ukranian_language": "Українська література",
+    "ukranian_history":"Історія україни",
+    "world_history":"Всесвітня історія",
+    "defence":"Захист україни",
+    "idk":"Основи правознавства",
+    "CE":"Вступ до спеціальності"
+  },
+  "class_list": {
+    "P13": "П-13"
+  },
+  "select_class": "Pick your class from these buttons:",
+  "class_saved": "Thanks, your class saved"
+}
