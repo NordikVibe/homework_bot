@@ -1,5 +1,6 @@
 from typing import Callable, Iterable
 from concurrent.futures import ProcessPoolExecutor
+from dotenv import load_dotenv
 
 import aiosqlite
 import re
@@ -18,18 +19,23 @@ class Dialog(StatesGroup):
     MainMenu = State()
     chose_group = State()
     get_homework = State()
+    select_subject = State()
 
-bot = Bot(token="8465868766:AAHGtK98y2RzFmLC0kO4IQjNySZ95X1eJxM")
-dp = Dispatcher(storage=MemoryStorage())
-
-db: aiosqlite.Connection | None = None
+load_dotenv()
 
 localeUA_file = open("translate.json", "r", encoding="utf-8")
 ua = json.load(localeUA_file)
 localeUA_file.close()
 
+bot = Bot(token=os.getenv("TOKEN"))
+dp = Dispatcher(storage=MemoryStorage())
+
+db: aiosqlite.Connection | None = None
+
 async def startup():
-    global db
+    global db, bot, dp, ua
+    
+    
     db = await aiosqlite.connect("database.db")
     await db.execute("""
     CREATE TABLE IF NOT EXISTS user (
@@ -112,6 +118,9 @@ async def CPU_bound_map(items: list, func: Callable) -> list:
         tasks = [loop.run_in_executor(pool, func, item) for item in items]
         return await asyncio.gather(*tasks)
 
+async def row_to_list(rows: aiosqlite.Row) -> list:
+    return [ row[0] for row in rows]
+
 def make_button(data: dict) -> InlineKeyboardButton:
     return InlineKeyboardButton(text=data["text"], callback_data=data["id"])
 
@@ -122,13 +131,11 @@ def build_keyboard(buttons: list[InlineKeyboardButton], columns:int=3):
 
 @dp.message(Command("start", "menu"))
 async def handler1(message: Message, state: FSMContext):
-    print(2)
     if await get_user(message.from_user.id):
         data = [
             {"text": ua["Button_text"]["get_homework"], "id": "get_homework"},
             {"text": ua["Button_text"]["add_homework"], "id": "add_homework"}]
         buttons = await CPU_bound_map(data,make_button)
-        print(buttons)
         await message.answer(ua["Texts"]["main_menu"], reply_markup=build_keyboard(buttons, columns=2))
         await state.set_state(Dialog.MainMenu)
     else:
@@ -139,7 +146,7 @@ async def handler1(message: Message, state: FSMContext):
         cur = await db.execute("SELECT group_name FROM 'group'")
         rows = await cur.fetchall()
         await cur.close()
-        values = [row[0] for row in rows]
+        values = await row_to_list(rows)
         data = [{"text": ua["GroupName"][value], "id":value} for value in values]
         buttons = await CPU_bound_map(data, make_button)
         await message.answer(ua["Texts"]["select_group"], reply_markup=build_keyboard(buttons))
@@ -153,12 +160,17 @@ async def handler2(callback: CallbackQuery, state: FSMContext):
     await db.commit()
     await callback.message.edit_text(ua["Texts"]["class_saved"])
 
-@dp.callback_query(StateFilter(Dialog.MainMenu) | F.data == "get_homework")
+@dp.callback_query(StateFilter(Dialog.MainMenu), (F.data == "get_homework"))
 async def handler3(callback: CallbackQuery, state: FSMContext):
-    pass
+    cur = await db.execute("SELECT class FROM user WHERE user_id = ?", (callback.from_user.id,))
+    gname = await cur.fetchone()
+    await cur.close()
+    cur = await db.execute("SELECT subject_name FROM group_subj WHERE group_name = ?", gname)
+    lessons = await row_to_list(await cur.fetchall())
+    await cur.close()
+    data = [{"text": ua["subjectList"][lesson], "id": lesson} for lesson in lessons]
+    buttons = await CPU_bound_map(data, make_button)
+    await callback.message.edit_text(ua["Texts"]["choose_subject"], reply_markup=build_keyboard(buttons))
+    await state.set_state(Dialog.select_subject)
 
 asyncio.run(startup())
-
-
-
-

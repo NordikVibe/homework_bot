@@ -1,25 +1,36 @@
 {
   "Not_Completed": "Not completed",
+  "In_progress": "In progress",
   "subjectList": {
-    "math": "Математика",
-    "biologia": "Біологія",
-    "ukranian_literature": "Українська література",
+    "Math": "Математика",
+    "Biology": "Біологія",
+    "Ukranian_literature": "Українська література",
     "IT": "Інформатика",
-    "english_language": "Англійська мова",
-    "literature": "Зарубіжна література",
-    "geographia": "Географія",
-    "physics":"Фізика",
+    "English": "Англійська мова",
+    "Foreign_literature": "Зарубіжна література",
+    "Geography": "Географія",
+    "Physic":"Фізика",
     "PE":"Фізкультура",
-    "ukranian_language": "Українська література",
-    "ukranian_history":"Історія україни",
-    "world_history":"Всесвітня історія",
-    "defence":"Захист україни",
-    "idk":"Основи правознавства",
+    "Ukranian_language": "Українська література",
+    "Ukranian_history":"Історія україни",
+    "World_history":"Всесвітня історія",
+    "Defence_fatherland":"Захист України",
+    "Law":"Основи правознавства",
     "CE":"Вступ до спеціальності"
   },
-  "class_list": {
-    "P13": "П-13"
+  "GroupName": {
+    "P13": "П13"
   },
-  "select_class": "Pick your class from these buttons:",
-  "class_saved": "Thanks, your class saved"
+  "Texts": {
+    "select_class": "Вибери свою групу з цього списку:",
+    "class_saved": "Дякую, я запам'ятав, тепер можеш починати користування /menu",
+    "/start_message": "Привіт, вибери що ти хочеш зробити",
+    "choose_subject": "Вибери потрібний предмет",
+    "main_menu": "Головне меню",
+    "select_group": "Привіт, ласкаво просимо до цього боту, тут ти зможешь дізнатись своє ДЗ (якщо в тебе однокурсники додадуть:) ) та розклад пар замінами, але для початку вибери свою групу"
+  },
+  "Button_text": {
+    "get_homework": "Отримати домашє завдання",
+    "add_homework": "Додати домашнє завдання"
+  }
 }
