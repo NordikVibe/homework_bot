@@ -1,6 +1,7 @@
 from typing import Callable, Iterable
 from concurrent.futures import ProcessPoolExecutor
 from dotenv import load_dotenv
+from datetime import datetime
 
 import aiosqlite
 import re
@@ -20,6 +21,7 @@ class Dialog(StatesGroup):
     chose_group = State()
     get_homework = State()
     select_subject = State()
+    select_month = State()
 
 load_dotenv()
 
@@ -33,9 +35,8 @@ dp = Dispatcher(storage=MemoryStorage())
 db: aiosqlite.Connection | None = None
 
 async def startup():
-    global db, bot, dp, ua
-    
-    
+    global db
+
     db = await aiosqlite.connect("database.db")
     await db.execute("""
     CREATE TABLE IF NOT EXISTS user (
@@ -44,40 +45,33 @@ async def startup():
         user_id INTEGER UNIQUE NOT NULL,
         class TEXT DEFAULT NULL,
         isAdmin BLOB DEFAULT 0
-    )
-    """)
+    )""")
     await db.execute("""
     CREATE TABLE IF NOT EXISTS homework (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         author_username TEXT DEFAULT NULL,
         class TEXT NOT NULL,
-        year_added INTENGER,
-        mouth_added INTEGER,
-        day_added INTENGER,
+        date_added DATE,
         time_added TEXT,
-        due_day INTENGER,
-        due_mouth INTENGER,
-        due_year INTENGER,
+        due_day INTEGER,
+        due_month INTEGER,
         subject TEXT NOT NULL,
         text TEXT,
-        file_path TEXT
-    )
-    """)
+        file_path TEXT DEFAULT NULL
+    )""")
     await db.execute("""
     CREATE TABLE IF NOT EXISTS "group" (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         group_name TEXT NOT NULL,
         schedule TEXT DEFAULT NULL,
         president_username TEXT DEFAULT NULL
-    )
-    """)
+    )""")
     await db.execute("""
     CREATE TABLE IF NOT EXISTS subject (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         teacher_name TEXT DEFAULT NULL
-    )
-    """)
+    )""")
     await db.execute("""
     CREATE TABLE IF NOT EXISTS group_subj (
         group_name TEXT NOT NULL,
@@ -85,8 +79,7 @@ async def startup():
         PRIMARY KEY (group_name, subject_name),
         FOREIGN KEY (group_name) REFERENCES "group"(group_name) ON DELETE CASCADE,
         FOREIGN KEY (subject_name) REFERENCES subject(name) ON DELETE CASCADE
-    )
-    """)
+    )""")
     await db.commit()
     try: 
         await dp.start_polling(bot)
@@ -94,11 +87,8 @@ async def startup():
         await db.close()
 
 async def get_user(id: int, mode: bool = False) -> aiosqlite.Row | bool:
-    cur = await db.execute(
-        "SELECT * FROM user WHERE user_id = ?",
-        (id,))
-    user = await cur.fetchone()
-    await cur.close()
+    with await db.execute("SELECT * FROM user WHERE user_id = ?", (id,)) as cur:
+        user = await cur.fetchone()
     if   user is not None and not mode: return True
     elif user is not None and mode: return user
     elif user is None: return False
@@ -143,9 +133,8 @@ async def handler1(message: Message, state: FSMContext):
                 "INSERT INTO user (username, user_id) VALUES (?, ?)",
                 (message.from_user.username, message.from_user.id))
         await db.commit()
-        cur = await db.execute("SELECT group_name FROM 'group'")
-        rows = await cur.fetchall()
-        await cur.close()
+        with await db.execute("SELECT group_name FROM 'group'") as cur:
+            rows = await cur.fetchall()
         values = await row_to_list(rows)
         data = [{"text": ua["GroupName"][value], "id":value} for value in values]
         buttons = await CPU_bound_map(data, make_button)
@@ -162,15 +151,25 @@ async def handler2(callback: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(StateFilter(Dialog.MainMenu), (F.data == "get_homework"))
 async def handler3(callback: CallbackQuery, state: FSMContext):
-    cur = await db.execute("SELECT class FROM user WHERE user_id = ?", (callback.from_user.id,))
-    gname = await cur.fetchone()
-    await cur.close()
-    cur = await db.execute("SELECT subject_name FROM group_subj WHERE group_name = ?", gname)
-    lessons = await row_to_list(await cur.fetchall())
-    await cur.close()
+    with await db.execute("SELECT class FROM user WHERE user_id = ?", (callback.from_user.id,)) as cur:
+        gname = await cur.fetchone()
+    with await db.execute("SELECT subject_name FROM group_subj WHERE group_name = ?", (gname[0],)) as cur:
+        lessons = await row_to_list(await cur.fetchall())
     data = [{"text": ua["subjectList"][lesson], "id": lesson} for lesson in lessons]
     buttons = await CPU_bound_map(data, make_button)
     await callback.message.edit_text(ua["Texts"]["choose_subject"], reply_markup=build_keyboard(buttons))
     await state.set_state(Dialog.select_subject)
+
+@dp.callback_query(StateFilter(Dialog.select_subject))
+async def handler4(callback: CallbackQuery, state: FSMContext):
+    with await db.execute("SELECT due_month FROM homework WHERE subject = ?",(callback.data, )) as cur:
+        months = await cur.fetchall()
+    with await db.execute("SELECT due_day, due_month FROM homework ORDER BY due_month DESC, due_day DESC LIMIT 1") as cur:
+        last = await cur.fetchone()
+    all = [row[0] for row in months ]
+    data = [{"text": ua["Months"][month], "id": month} for month in months] + [f"{last[0]}/{last[1]}"]
+    buttons = await CPU_bound_map(data, make_buttons)
+    await callback.message.edit_text(ua["Texts"]["select_month"], reply_markup=build_keyboard(buttons))
+    state.set_state(Dialog.select_month)
 
 asyncio.run(startup())
